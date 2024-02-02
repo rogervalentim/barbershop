@@ -5,6 +5,8 @@ import Image from "next/image"
 import { Barbershop } from "@prisma/client";
 import { Button } from "@/app/_components/ui/button";
 import { useRouter } from "next/navigation";
+import { Sheet, SheetContent, SheetTrigger } from "@/app/_components/ui/sheet";
+import SideMenu from "@/app/_components/side-menu";
 
 
 interface BarbershopInfoProps {
@@ -24,11 +26,17 @@ const BarbershopInfo = ({ barbershop }: BarbershopInfoProps) => {
         <Button onClick={handleBackClick} size="icon" variant="outline" className="z-50 absolute top-4 left-4">
             <ChevronLeftIcon />
         </Button>
-
-        <Button size="icon" variant="outline" className="z-50 absolute top-4 right-4">
+        
+        <Sheet>
+            <SheetTrigger asChild>
+            <Button size="icon" variant="outline" className="z-50 absolute top-4 right-4">
             <MenuIcon />
         </Button>
-
+            </SheetTrigger>
+            <SheetContent className="p-0">
+                <SideMenu />
+            </SheetContent>
+            </Sheet>
 
         <Image src={barbershop.imageUrl} fill alt={barbershop.name} style={{
             objectFit: "cover",
