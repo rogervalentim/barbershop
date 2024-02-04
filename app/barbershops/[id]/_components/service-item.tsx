@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/app/_components/ui/button";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Calendar } from "@/app/_components/ui/calendar";
-import { Barbershop, Service } from "@prisma/client"
+import { Barbershop, Service, Booking } from "@prisma/client"
 import Image from "next/image";
 import { signIn, useSession } from "next-auth/react";
 import { ptBR } from "date-fns/locale"
@@ -15,13 +15,16 @@ import { saveBooking } from "../_actions/save-booking";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { getDayBookings } from "../_actions/get-day-bookings";
 
 interface ServiceItemProps {
     barbershop: Barbershop;
     service: Service;
     isAuthenticated: boolean;
-
 }
+
+
+
 const ServiceItem = ({ service, isAuthenticated, barbershop }: ServiceItemProps) => {
     const router = useRouter()
     const {data} = useSession();
@@ -30,68 +33,99 @@ const ServiceItem = ({ service, isAuthenticated, barbershop }: ServiceItemProps)
     const [ hour, setHour] = useState<string | undefined>();
     const [submitIsLoading, setSubmitIsLoading] = useState(false);
     const [sheetIsOpen, setSheetIsOpen] = useState(false);
+    const [dayBookings, setDayBookings] = useState<Booking[]>([])
 
-    const handleDateClick = (date: Date | undefined) => {
-        setDate(date)
-        setHour(undefined)
-    }
-
-    const handleHourClick = (time: string) => {
-        setHour(time)
-    }
-
-    const handleBookingClick = () => {
-        if(!isAuthenticated) {
-            return signIn('google')
+    useEffect(() => {
+        if (!date) {
+          return;
         }
-    }
-
-    const handleBookingSubmit = async () => {
-        setSubmitIsLoading(true)
+    
+        const refreshAvailableHours = async () => {
+          const _dayBookings = await getDayBookings(barbershop.id, date);
+          setDayBookings(_dayBookings);
+        };
+    
+        refreshAvailableHours();
+      }, [date, barbershop.id]);
+    
+      const handleDateClick = (date: Date | undefined) => {
+        setDate(date);
+        setHour(undefined);
+      };
+    
+      const handleHourClick = (time: string) => {
+        setHour(time);
+      };
+    
+      const handleBookingClick = () => {
+        if (!isAuthenticated) {
+          return signIn("google");
+        }
+      };
+    
+      const handleBookingSubmit = async () => {
+        setSubmitIsLoading(true);
+    
         try {
-            if (!hour || !date || !data?.user) {
-              return;
-            }
-      
-            const dateHour = Number(hour.split(":")[0]);
-            const dateMinutes = Number(hour.split(":")[1]);
-      
-            const newDate = setMinutes(setHours(date, dateHour), dateMinutes);
-      
-            await saveBooking({
-              serviceId: service.id,
-              barbershopId: barbershop.id,
-              date: newDate,
-              userId: (data.user as any).id,
-            });      
-            
-            setSheetIsOpen(false);
-
-            setDate(undefined);
-            setHour(undefined);
-
-            toast("Reserva realizada com sucesso!", {
-                description: format(newDate, "'Para' dd 'de' MMMM 'às' HH':'mm'.'", {
-                  locale: ptBR,
-                }),
-                action: {
-                  label: "Visualizar",
-                  onClick: () => router.push("/bookings"),
-                },
-              });
-        } catch(error) {
-            console.log(error);
+          if (!hour || !date || !data?.user) {
+            return;
+          }
+    
+          const dateHour = Number(hour.split(":")[0]);
+          const dateMinutes = Number(hour.split(":")[1]);
+    
+          const newDate = setMinutes(setHours(date, dateHour), dateMinutes);
+    
+          await saveBooking({
+            serviceId: service.id,
+            barbershopId: barbershop.id,
+            date: newDate,
+            userId: (data.user as any).id,
+          });
+    
+          setSheetIsOpen(false);
+          setHour(undefined);
+          setDate(undefined);
+          toast("Reserva realizada com sucesso!", {
+            description: format(newDate, "'Para' dd 'de' MMMM 'às' HH':'mm'.'", {
+              locale: ptBR,
+            }),
+            action: {
+              label: "Visualizar",
+              onClick: () => router.push("/bookings"),
+            },
+          });
+        } catch (error) {
+          console.error(error);
         } finally {
-            setSubmitIsLoading(false);
+          setSubmitIsLoading(false);
         }
-    }
-
-    console.log(handleBookingSubmit)
-
-     const timeList = useMemo(() => {
-        return date ? generateDayTimeList(date) : [];
-     }, [date])
-
+      };
+    
+      const timeList = useMemo(() => {
+        if (!date) {
+          return [];
+        }
+    
+        return generateDayTimeList(date).filter((time) => {
+          const timeHour = Number(time.split(":")[0]);
+          const timeMinutes = Number(time.split(":")[1]);
+    
+          const booking = dayBookings.find((booking) => {
+            const bookingHour = booking.date.getHours();
+            const bookingMinutes = booking.date.getMinutes();
+    
+            return bookingHour === timeHour && bookingMinutes === timeMinutes;
+          });
+    
+          if (!booking) {
+            return true;
+          }
+    
+          return false;
+        });
+      }, [date, dayBookings]);
+      
     return (
         <Card>
             <CardContent className="p-3 gap-3 flex flex-col">
