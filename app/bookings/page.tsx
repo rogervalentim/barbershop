@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth"
 import Header from "../_components/header";
-import { signIn } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { db } from "../_lib/prisma";
 import BookingItem from "../_components/booking-item";
